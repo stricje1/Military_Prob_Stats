@@ -1,0 +1,2 @@
+# Military_Prob_Stats
+This repository support the textbook: Probability and Statistics with Military Applications, which is licensed under a Creative Commons (CC) license CC-BY-NC-SA.  BY means attribution is required, NC means no commercial use.  SA means share alike, which means that any derivative work must adopt the same license type.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/4.0/ 
