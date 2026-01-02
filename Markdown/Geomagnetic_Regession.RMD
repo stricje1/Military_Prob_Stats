@@ -1,0 +1,313 @@
+---
+title: "Global Navigation Satellite System Regression"
+author: "Dr. Jeff Strickland"
+date: "2024-11-23"
+output: 
+  word_document: default
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 13.2.3	Vignette 13 (Global Navigation Satellite System) Multivariate Regression with Transformations
+
+Recall from the vignette description in Section 1.4.13 that geomagnetic (solar) storm activity is being monitored to assess the possible impact on GNSS performance. Solar activity is reported by the Space Weather Prediction Center (SWPC), a division of the National Oceanic and Atmospheric Administration (NOAA). When storm activity is indicated, ionospheric delays of the GPS signal, satellite outages, position accuracy and availability will be analyzed.
+An instrument called a magnetometer may also measure the disturbance of the geomagnetic field. 
+
+At NOAA’s operations center magnetometer data is received from dozens of observatories in one minute intervals. The data is received at or near to ‘real-time’ and allows NOAA to keep track of the current state of the geomagnetic conditions. In order to reduce the amount of data NOAA converts the magnetometer data into three-hourly indices, which give a quantitative, but less detailed measure of the level of geomagnetic activity. The K-index scale has a range from 0 to 9 and is directly related to the maximum amount of fluctuation (relative to a quiet day) in the geomagnetic field over a three-hour interval.
+
+The K-index is therefore updated every three hours. The K-index is also necessarily tied to a specific geomagnetic observatory. For locations where there are no observatories, one can only estimate what the local K-index would be by looking at data from the nearest observatory, but this would be subject to some errors from time to time because geomagnetic activity is not always spatially homogenous. Readings are taken for middle latitude, high latitude, and estimated planetary.
+
+$$K_{index} \text{ }\tilde{}\text{ } x_1+x_2+⋯+x_1×x_2+⋯+x_1×x_2+⋯x_(n-1)×x_n+⋯+x_i:x_n$$
+where $x_i$ though $x_n$ fluctuation readings for are three-hour periods $(n=8)$, and $x_i:x_n=x_1×x_2×x_3×…×x_7×x_8$
+
+Table 13-29 contains readings of one week.
+
+|Planet_k	|x_1	|x_2	|x_3	|x_4	|x_5	|x_6	|x_7	|x_8|
+|----:|----:|----:|----:|----:|----:|----:|----:|----:|
+|9.00	|4.00	|2.00	|2.00	|2.00	|2.00	|1.00	|1.33	|1.67|
+|9.00	|3.00	|3.33	|1.00	|2.33	|1.67	|1.67	|1.67	|2.33|
+|8.00	|1.33	|2.67	|1.67	|1.33	|2.33	|2.33	|2.33	|1.67|
+|10.00	|2.67	|2.33	|2.67	|2.67	|2.00	|1.67	|2.00	|3.33|
+|16.00	|4.33	|5.00	|2.33	|3.00	|2.00	|1.00	|1.33	|2.33|
+|9.00	|2.33	|2.67	|2.33	|1.67	|1.33	|1.67	|1.00	|3.33|
+|5.00	|1.33	|2.00	|1.33	|0.67	|0.33	|0.33	|1.67	|1.67|
+
+#### Loading and Summarizing the Data
+
+The first step in building a regression model in R-Studio is to load and explore the data, starting with a data summary, as seen in Table 13-3.
+
+```{r}
+# Summarizing the Data
+geo_mag_plan <-read.csv("C:\\Users\\jeff\\OneDrive\\Books\\Prob and Stats\\Data\\geo_mag_plan.csv")
+
+head(geo_mag_plan)
+```
+
+The dataframe shows that `Date` is one of the variables, but we do not need it for this analysis. We will drop it by excluding it from a redefined dataframe:
+
+```{r}
+geo_mag <- geo_mag_plan[2:10]
+head(geo_mag)
+```
+
+#### Data Summary
+
+Now, as a first step to explore the data, we summarize the dataframe:
+
+```{r}
+# Summarizing the Data
+summary(geo_mag)
+```
+
+#### Scatterplot
+
+Next, we build scatterplots for each variable. We can do this efficiently using 'plot(dataframe)` and splitting the number of plots equally. The plots are shown in Figure 13-38.
+
+```{r, fig.width = 5, fig.height = 5, dpi=330}
+plot(geo_mag[1:5], col = 'dodgerblue')
+plot(cbind(geo_mag[1],geo_mag[6:9]), col = 'dodgerblue')
+```
+
+The plots reveal that these could be linear, but does not show this for certain. Some show a slight curve ($Z_6$, $Z_9$, and $Z_{12}$) So, now we will focus on one of the independent variables, $Z_3$ (first 3-hour reading).
+
+A scatterplot for the full year of the first three-hour readings is shone in Figure 13-39. The top plot shows the data on the original scale. As we can see, the data is spread out across the domain but there could be a positive linear relationship. 
+
+```{r, fig.width = 5, fig.height = 4, dpi=330}
+# Origrnal scale
+library(ggplot2)
+ggplot(geo_mag, aes(x=Z3, y=Planet_k)) +
+  geom_point(color = "dodgerblue", size = 2) 
+```
+
+It would seem appropriate to rescale the K-index using a logarithmic transformation, which is shown in the bottom plot of Figure 13-38. The new scatterplot shows a more obvious linear relationship.
+
+```{r, fig.width = 5, fig.height = 2, dpi=330}
+#Log scale
+p2 <- ggplot(geo_mag, aes(x=Z3, y=log(Planet_k)))
+p2 + geom_point(color = "dodgerblue", size = 2) 
+```
+
+#### Checking for Correlation
+
+Next, we check the correlation of the data usingthe `cor` function.
+
+```{r}
+round(cor(geo_mag),2)
+```
+
+#### Fit Model 1 for Origuinal Response
+
+Now, we fit a simple linear regression model of $Planet_k$ using $Z_3$.
+
+```{r, fig.width = 5, fig.height = 4, dpi=330}
+fit1 <- lm(Planet_k ~ Z3, data = geo_mag)
+summary(fit1)
+
+ggplot(geo_mag, aes(x=Z3, y=Planet_k)) + 
+  geom_point(shape=20, color="red3", size = 3)+
+  geom_smooth(method=lm, se=FALSE, linetype="solid",
+              color="blue", lwd = 1.25)
+```
+
+With an adjusted $R^2$ of 0.3255, we do not have a strong fit. That is, $Z_3$ only explains about 33% of the variability in $Planet_k$.
+
+So, we will apply the log transformatio to $Planet_k$.
+
+#### Fit Model 2 for log-transform of the Response
+
+Now, we fit a simple linear regression model of $log(Planet_k)$ using $Z_3$.
+
+```{r, fig.width = 5, fig.height = 2, dpi=330}
+fit2 <- lm(log(Planet_k) ~ Z3, data = geo_mag)
+summary(fit2)
+
+ggplot(geo_mag, aes(x=Z3, y=log(Planet_k))) + 
+  geom_point(shape=20, color="red3", size = 3)+
+  geom_smooth(method=lm, se=FALSE, linetype="solid",
+              color="blue", lwd = 1.25)
+```
+With an adjusted $R^2$ of 0.5088, we do not have a strong fit. That is, $Z_3$ only explains about 50% of the variability in $Planet_k$.
+
+#### Diagnostic Plots the Model Residuals
+
+Random deviations of obtained residuals should have a normal density distribution. First, we need to receive the residuals with the following code:
+
+```{r}
+res<-data.frame(residuals(fit2))
+head(res)
+```
+
+It is very useful to create density plots of obtained residuals for checking the assumptions and for assessing the goodness of the fit. Hence, we can use the library (ggplot2) for creating a plot of the density distribution of obtained residuals versus normal scores:
+
+```{r, fig.width = 5, fig.height = 3.5, dpi=330}
+ggplot(res, aes(x = residuals.fit2.)) + 
+  geom_histogram(aes(y = ..density..), colour = "black",
+                 fill = c("white")) +
+  geom_density(aes(x = residuals.fit2., y = ..density..),
+               col = "blue") +
+  stat_function(fun = dnorm, args = list(
+    mean = mean(res$residuals.fit2.), 
+    sd = sd(res$residuals.fit2.)), col = "red") +
+  ylab("Density") + xlab("Residuals")
+```
+
+The normal scores are what we would expect to obtain if we take a sample of size $n$ with mean and standard deviation from the residuals. If the residuals are normally distributed, the picture of obtained residuals in Figure 13-42 should be approximately the same as the normal scores. However, we have a skewed distribution of our residuals and need more checks for this problem.
+
+Another way to check the normality distribution of *studentized* residuals is the automatic construction of a Quantile-Quantile plot. This plot can be easily constructed with library (`car`):
+
+```{r, fig.width = 5, fig.height = 4, dpi=330}
+library(car)
+qqPlot(fit2, labels = row.names(data), simulate = TRUE, main = 'Q-Q Plot')
+```
+
+In Figure 5 we have a plot of the quantiles of standardized residuals versus the quantiles of normal scores. Here again, if the residuals are normally distributed, the points of standardized residuals should be approximately the same as the points of normal scores. Under normality assumption, this plot should represent a straight line with an intercept of zero (mean) and a slope of the size of the standard deviation of the standardized residuals, i.e. 1. In our case, in Figgure 5 we see like in Figure 4 that we have some deviation from the normal distribution. In addition, in Figure 5 we detected the outliers: observations number 42 and 72.
+
+A more complete way of investigation of this problem suggests construction of the plot of the model `Situps ~ Pushups` with the next code chunk.
+
+As the output of such a code, we obtain four diagnostic plots of the regression line, which are shown in Figure 6. These are:
+
+* Plot of the residuals versus fitted values;
+
+* Normal Quantile-Quantile plot;
+
+* Plot of the standardized residuals versus fitted values;
+
+* Plot of the standardized residuals versus leverage.
+
+```{r, fig.width = 4, fig.height = 3.5, dpi=330}
+plot(fit2, col = "red2", lwd = 2, pch = 18)
+```
+
+The first three plots help to investigate the mentioned above problem with random deviations of the residuals that should have a normal density distribution. The fourth plot also helps to detect influential points and outliers.
+
+#### More Data Exploration
+
+Not being satisfied with the fit, we will look at more than one independent variable in a 3D plot to see what is occurring. For this part of the analysis, we use $Z_{12}$ and $Z_{18}$.
+
+#### Create a basic 2D scatter plot of Three Variables
+
+Technically, we are making a two-variable plot. However, plotly allows us to use the dependent variable, Run, to color the variables so that there location on the z-axis can be inferred.
+
+```{r, fig.width = 6, fig.height = 8, dpi=330}
+library(ggplot2)
+library(plotly)
+p <- plot_ly(geo_mag, x = ~Z12, y = ~Z18, z = ~Planet_k, type = "scatter3d", mode = "markers",
+             marker = list(size = 3)) %>%
+  layout(title = "3D Scatter Plot",
+         scene = list(xaxis = list(title = "X Axis"),
+                      yaxis = list(title = "Y Axis"),
+                      zaxis = list(title = "Z Axis")))
+
+# Display the 3D scatter plot
+p
+```
+
+The 3D plot shows that there might be a possible second-order "curvilinear" relationship. So, we take a look at the other independent variables vs the Planet_k and log(Planet_k):
+
+
+```{r, fig.width = 5, fig.height = 7, dpi=330}
+# Create a basic 2D scatter plot with ggplot2
+
+p1 <- ggplot(geo_mag, aes(Planet_k, (Planet_k))) + geom_point(color = "dodgerblue", size = 3) + geom_smooth()
+p2 <- ggplot(geo_mag, aes(Z3, (Planet_k))) + geom_point(color = "dodgerblue", size = 3) + geom_smooth()
+p3 <- ggplot(geo_mag, aes(Z6, (Planet_k))) + geom_point(color = "dodgerblue", size = 3) + geom_smooth()
+p4 <- ggplot(geo_mag, aes(Z9, (Planet_k))) + geom_point(color = "dodgerblue", size = 3) + geom_smooth()
+p5 <- ggplot(geo_mag, aes(Z12, (Planet_k))) + geom_point(color = "dodgerblue", size = 3) + geom_smooth()
+p6 <- ggplot(geo_mag, aes(Z15, (Planet_k))) + geom_point(color = "dodgerblue", size = 3) + geom_smooth()
+
+library(gridExtra)
+grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3)
+```
+
+```{r, fig.width = 5, fig.height = 7, dpi=330}
+lp1 <- ggplot(geo_mag, aes(Planet_k, log(Planet_k))) + geom_point(color = "dodgerblue", size = 3) + geom_smooth()
+lp4 <- ggplot(geo_mag, aes(Z18, log(Planet_k))) + geom_point(color = "dodgerblue", size = 3) + geom_smooth()
+lp5 <- ggplot(geo_mag, aes(Z21, log(Planet_k))) + geom_point(color = "dodgerblue", size = 3) + geom_smooth()
+lp6 <- ggplot(geo_mag, aes(Z24, log(Planet_k))) + geom_point(color = "dodgerblue", size = 3) + geom_smooth()
+
+library(gridExtra)
+grid.arrange(lp1, lp4, lp5, lp6, nrow = 3)
+```
+The polynomial shape is prevalent, so we will a apply a second-order polynomial fit, using $Z_{12}$ and $Z_{18}$ (they look representative of the others).
+
+#### Fit a Multiple Regression Model
+
+We start our analysis by constructing a model with the two predictors and no interaction: 
+
+$$Planet_k \text{ }\tilde{}\text{ }Z^{2}_{12} + Z^{2}_{18}$$.
+
+```{r}
+fit3 <- lm(Planet_k ~ I(Z12^2) + I(Z18^2), data = geo_mag)
+summary(fit3)
+```
+
+```{r}
+pred3 <- predict(fit3, interval="conf")
+geo_mag_perd3 <- cbind(geo_mag$Planet_k, geo_mag$Z12, geo_mag$Z18, pred3)
+```
+
+#### Plot the Results
+
+```{r, fig.width = 5, fig.height = 4, dpi=330}
+library(predict3d)
+library(rgl)
+predict3d(fit3, show.subtitle=FALSE, se=TRUE, radius = 0.5, xpos=0.5)
+rglwidget(elementId = "1st")
+```
+
+
+
+Now we turn our attention to the multivariate model of the relationship between the time for a two-mile run and the number of situps and pushups.
+
+```{r, fig.width = 5, fig.height = 3, dpi=330}
+ggplot(fit3, aes(x = .fitted, y = .resid)) +
+  geom_point(col = 'red4', size = 2) +
+  geom_hline(yintercept = 0) +
+  labs(title = "WD Yield at Various Temperatures",
+       x = "Fitted Values",   y = "Residuals")
+```
+
+# Multiple Linear Regression Model With Interaction
+
+We can construct a regression model in which the explanatory variables are interact:
+
+$$Planet_k \text{ }\tilde{}\text{ } Z^{2}_{12}+Z^{2}_{18} +  (Z^{2}_{12}:Z^{2}_{18})$$
+
+In the regression equation, you can see the ":". 
+It means the interaction of $Z^{2}_{12}$ and $Z^{2}_{18}$. The equation notation using 'star', i.e., $x_1*x_2$, results in all variables and their interactions: $x_1*x_2$ means $x_1+x_2+x_1:x_2$.
+
+
+```{r}
+fit4 <- lm(Planet_k ~ I(Z12^2)*I(Z18^2), data = geo_mag)
+summary(fit4)
+```
+
+We can plot 3d plot of this model with `predict3d()` function.
+
+```{r, fig.width = 5, fig.height = 4, dpi=330}
+library(predict3d)
+library(rgl)
+predict3d(fit4, show.subtitle=FALSE, se=TRUE, radius = 0.5, xpos=0.5)
+rglwidget(elementId = "1st")
+```
+
+We can plot the model residuals with the following R code.
+
+```{r, fig.width = 5, fig.height = 3.5, dpi=330}
+plot(fit4$residuals, col = 'red3', pch = 16, cex=1)
+```
+
+The residuals show three outliers: $Z_{58}$, $Z_{69}$. and $Z_{73}$. Otherwise the residuals look randomly distributed.
+
+#### Conclusion
+
+There are numerous problems that my be solved using multi-variable regression. However, just because we think that a response depends on all potential predictors, or that the relationships are linear, that is seldom the case. As we saw in this example, a second order polynomial with two independent variable and no interaction provide the best fit:
+
+$$Planet_k=Z^{2}_{12}+Z^{2}_{18}$$
+
+with an adjusted $R^2$ of 0.9288. That is, this model explains about 92% of the variability in $Planet_k$.
+
+

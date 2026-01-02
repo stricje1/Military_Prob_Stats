@@ -1,0 +1,325 @@
+---
+title: "Strength of Materials"
+author: "Dr. Jeff Strickland"
+date: "2024-11-06"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##  Load the required packages by running the following code in RStudio
+
+```{r, message=FALSE}
+library(tibble)
+library(stats)
+library(tidyr)
+library(broom)
+library(multcomp)
+library(dplyr)
+library(dbplyr)
+``` 
+
+## PART 01: PREPARING DATA FOR ANOVA
+
+### 1. Read in the data from the CSV file by running the following code:
+
+```{r}  
+mat_dat <-read.csv("C:\\Users\\jeff\\OneDrive\\Books\\Prob and Stats\\Data\\airframe_materials.csv")
+```
+
+### 2. Explore the data
+
+First, we summarize the data. One thing to observe is that the datset contains missing data, which we will correct later.
+
+```{r}
+summary(mat_dat)
+```
+### 3. Build a boxplot
+
+Although the data summary is good, visualizing the summarized data can be more insightful. Notice the means of the material wear scores (the vertical black lines). These appears to be some potential differences in mean values.
+
+```{r, fig.dim = c(5, 6), dpi=330}
+boxplot(mat_dat,horizontal=TRUE, col = "skyblue", lwd=2, cex.axis=1)  
+```
+
+### 4. Add a dataframe index
+
+When performing ANOVA and other statistical analyses, putting the data into a data frame make dat manipulation is very efficient.
+
+```{r}
+mat_dat$index <- 1:nrow(mat_dat)
+mat_dat
+```
+
+### 5. Convert wide dataframe to long dataframe
+
+The dataframe we created is in a format called wide, for the fact that the factors, material types, are columns of the dataframe. For performing a one-factor ANOVA, we must form one factor, material type, and on response, wear score. To accomplish this, we tranform the wide dataframe into a long dataframe.
+
+```{r, fig.cap="Illustration of the wide-to-long dataframe transformation", out.width = '100%', dpi=330}
+knitr::include_graphics("C:/Users/jeff/OneDrive/Books/Prob and Stats/pivot_longer.png")
+```
+
+We perform the transformation using the `pivot_longer` function. We world use the `pivot_wide` function to revert back to the wide dataframe.
+
+```{r}
+mat_long <- mat_dat %>%
+  pivot_longer(cols = -index, names_to = "material", values_to = "mean_score")
+```
+
+### 6. Check the structure of the long dataframe
+
+Just to be sure the transformation worked, we view the structure of the new dataframe using the `str` function
+
+```{r}
+str(mat_long)
+```
+
+### 7. View part the the long dataframe
+
+In addition to viewing the structure of the dataframe, we take a peek at the first 20 rows.
+
+```{r}
+head(mat_long,20)
+```
+
+### 8. Impute missing values using the medians
+
+When we printed the original data frame, we observed that there was some missing wear scores. Now, we impute the missing values using the sample means via the replace functio.
+
+```{r}
+mat_imputed <- data.frame(
+  original = mat_long$mean_score,
+  median_score = replace(mat_long$mean_score, is.na(mat_long$mean_score), median(mat_long$mean_score, na.rm = TRUE))
+)
+head(mat_imputed,10)
+```
+
+### 9. Put the imputed data into a dataframe
+
+The imputed value we generated must be placed into the data frame with their corresponding factors, material.
+
+```{r}
+mat_imp <- as.data.frame(cbind(mat_long$material,mat_imputed$median_score))
+```
+
+### 10. Rename the variables
+
+Finally, we complete our data preparation by renaming the variables.
+
+```{r}
+colnames(mat_imp)[1] <- "Factor"
+colnames(mat_imp)[2] <- "Response"
+```
+
+## PART 2: PERFORM AN ANOVA
+
+First, we establish the hypothises for the experiment.
+
+$$H_0: \mu_1+\mu_2+\mu_3+\mu_4+\mu_5+\mu_6$$
+$$H_A: \text{at least one } \mu_i \text{ is not equal}$$
+
+Now, we perform the ANOVA analyses using the aov function and storing the output as the object `aov.out`.
+
+```{r}
+aov.out <- aov(Response~Factor, data = mat_imp)
+significance_level <- 0.05
+```
+
+### Print the ANOVA Table
+
+Next, we print the ANOVA table from the aov.out object. The ANOVA table reveals that the are some differences in mean wear scores among the material types. The p-value is 1.9e-09, practically 0, indicating significance and leading us to reject the null hypothesis.
+
+```{r}
+summary(aov.out) 
+```
+
+## PART 03: EFFECT AND GENERAL RESULTS
+
+Now, we create an ANOVA table that is a little more "presentable" using the kable function, which we call a "kable table". 
+
+```{r}
+anova_table <- as.data.frame(anova(aov.out))
+```
+
+### 1. Extract the results from the ANOVA test
+
+To generate the table, we need to pull the information from the `anova_table` object.
+
+```{r}
+DF_labels = anova_table$Df[1]
+DF_residuals = anova_table$Df[2]
+SS_labels = anova_table$`Sum Sq`[1]
+SS_residuals = anova_table$`Sum Sq`[2]
+MS_labels = anova_table$`Mean Sq`[1]
+MS_residuals = anova_table$`Mean Sq`[2]
+F_statistic <- anova_table$F[1]
+F_critical_value <- qf(0.95, length(unique(mat_imp$Factor))-1, aov.out$df.resid)
+p_value <- anova_table$"Pr(>F)"[1]
+#Post-hoc: Bonferroni Correction
+bonferroni_corr <- p.adjust(p_value, method = "bonferroni")
+```
+
+### 2. Create a data frame with ANOVA results
+
+Next we put the ANOVA metrics in a dataframe called `anova_results`, optimized to become a table.
+
+```{r}
+anova_results <- data.frame(rbind(
+  cbind("Factor", 
+        DF = round(DF_labels,4),
+        SS = round(SS_labels,4),
+        MS = round(MS_labels,4),
+        F_statistic = round(F_statistic,4),
+        p_value = round(p_value,8)),  
+  cbind("Residual", 
+        DF_Within = round(DF_residuals,4),
+        SS_Within = round(SS_residuals,4),
+        MS_Within = round(MS_residuals,4),
+        F_critical_value = round(F_critical_value,4),
+        ""),
+  cbind("Total", 
+        DF_Total = round(DF_labels + DF_residuals,4),
+        SS_Total = round(SS_labels + SS_residuals,4),
+        MS_Total = round(MS_labels + MS_residuals,4),
+        "",
+        ""))
+  )
+anova_results
+```
+
+### 3. Print a kable (Knitr table)
+
+Finally, we print the table.
+
+```{r}
+knitr::kable(head(anova_results[, 1:6]), "pipe")
+```
+
+## PART 04: POST HOC TESTS
+
+We discovered from the ANOVA results that at least one of the wear score means is not equal to the others. Now, we must determiine which one are not equal.
+
+### 1. Post-hoc: Bonferroni Correction
+
+The Bonferroni correction is a statistical method used to reduce the number of false positives when multiple hypothesis tests are performed simultaneously. Mathematically, the Bonferroni correction adjusts the significance level for each individual test by dividing α by m. The result, zero, demonstrates that no adjustment is necessary.
+
+```{r}
+cat("\nBonferroni-Correction = ", round(bonferroni_corr, 3), "\n")
+```
+
+### 2. Post-hoc: Tukey's HSD
+
+Tukey's Honestly Significant Difference (HSD) test is a statistical tool that determines if the difference between two sets of data is statistically significant: 
+* Purpose: Compares the means of each sample to the means of every other sample
+* When to use: Used as a follow-up to one-way ANOVA 
+* Assumptions: Independent observations, normality of distribution, and homogeneity of variance 
+* Null hypothesis: The means of the tested groups are equal 
+
+```{r}
+tukey <- TukeyHSD(aov.out)
+tukey_table <- tidy(tukey)
+tukey_df <- as.data.frame(tukey_table)
+tukey_df
+```
+
+In the output, pair of groups are significantly different from each other if the adjusted p-value < 0.05. 
+
+## PART 04: CONCLUSIONS
+
+Here, we implement a user-defined function to print our conclusions. For the sake of making the output readible, we do not print the code until the end.
+
+### 1. Function to generate conclusions based on parameters and characteristics
+
+```{r, echo=FALSE}
+generate_conclusions <- function(p_value, F_statistic,  bonferroni_corr) {
+  conclusions <- data.frame(Variable = character(), Conclusions = character(), stringsAsFactors = FALSE)
+  
+  
+  # p-value conclusion
+  if (p_value < significance_level) {
+    conclusions <- rbind(conclusions, data.frame(Variable = "p-value < alpha.Reject the null hypothesis.There is significant evidence to support the alternative hypothesis.Hence, at least one group mean is different from the others."))
+  } else {
+    conclusions <- rbind(conclusions, data.frame(Variable = "p-value > alpha.Fail to reject the null hypothesis.There is not enough evidence to support the alternative hypothesis.Hence, there is no significant evidence to determine that at least one group mean is different from the others."))
+  }
+  
+  
+  # F-statistic conclusion
+  if (F_statistic < F_critical_value) {
+    conclusions <- rbind(conclusions, data.frame(Variable = "F < Fcrit.Fail to reject the null hypothesis.There is not enough evidence to support the alternative hypothesis.Hence, there is no significant evidence to determine that at least one group mean is different from the others."))
+  } else {
+    conclusions <- rbind(conclusions, data.frame(Variable = "F > Fcrit.Reject the null hypothesis.There is significant evidence to support the alternative hypothesis.Hence, at least one group mean is different from the others.."))
+  }
+  
+  return(conclusions)
+}
+
+
+# Generate conclusions based on parameters and characteristics
+conclusions_df <- generate_conclusions(p_value, F_statistic, bonferroni_corr)
+
+# Print the conclusions data frame
+print(conclusions_df)
+
+
+# Post-hoc: Bonferroni Correction conclusion
+if (any(bonferroni_corr < significance_level)) {
+  significant_comparisons <- which(bonferroni_corr < significance_level)
+  paste("There are significant differences between group", significant_comparisons)
+} else {
+  "There are no significant differences between the groups"
+}
+
+if (bonferroni_corr < significance_level) {
+  b_result_text <- "b < alpha.There are significant differences between group\n"
+} else {
+  b_result_text <- "b > alpha.There are no significant differences between the groups\n"
+}
+```
+
+### User-defined Function Code
+
+`generate_conclusions <- function(p_value, F_statistic,  bonferroni_corr) {
+  conclusions <- data.frame(Variable = character(), Conclusions = character(), stringsAsFactors = FALSE)
+  
+  
+  # p-value conclusion
+  if (p_value < significance_level) {
+    conclusions <- rbind(conclusions, data.frame(Variable = "p-value < alpha.Reject the null hypothesis.There is significant evidence to support the alternative hypothesis.Hence, at least one group mean is different from the others."))
+  } else {
+    conclusions <- rbind(conclusions, data.frame(Variable = "p-value > alpha.Fail to reject the null hypothesis.There is not enough evidence to support the alternative hypothesis.Hence, there is no significant evidence to determine that at least one group mean is different from the others."))
+  }
+  
+  
+  # F-statistic conclusion
+  if (F_statistic < F_critical_value) {
+    conclusions <- rbind(conclusions, data.frame(Variable = "F < Fcrit.Fail to reject the null hypothesis.There is not enough evidence to support the alternative hypothesis.Hence, there is no significant evidence to determine that at least one group mean is different from the others."))
+  } else {
+    conclusions <- rbind(conclusions, data.frame(Variable = "F > Fcrit.Reject the null hypothesis.There is significant evidence to support the alternative hypothesis.Hence, at least one group mean is different from the others.."))
+  }
+  
+  return(conclusions)
+}
+
+
+# Generate conclusions based on parameters and characteristics
+conclusions_df <- generate_conclusions(p_value, F_statistic, bonferroni_corr)
+
+# Print the conclusions data frame
+print(conclusions_df)
+
+
+# Post-hoc: Bonferroni Correction conclusion
+if (any(bonferroni_corr < significance_level)) {
+  significant_comparisons <- which(bonferroni_corr < significance_level)
+  paste("There are significant differences between group", significant_comparisons)
+} else {
+  "There are no significant differences between the groups"
+}
+
+if (bonferroni_corr < significance_level) {
+  b_result_text <- "b < alpha.There are significant differences between group\n"
+} else {
+  b_result_text <- "b > alpha.There are no significant differences between the groups\n"
+}

@@ -1,0 +1,153 @@
+---
+title: "Infrared Radiation Meters"
+author: "Dr. Jeff Strickland"
+date: "2024-11-07"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Problem
+
+A research establishment has five infrared radiation meters and runs an experiment  to investigate whether the meters are providing essentially equivalent readings. A total of 15 objects of different materials, temperatures, and sizes are used in the experiment, and radiation readings from each object are taken with each of the five meters.
+
+Recall that in a randomized block design, there is only one primary factor under consideration in the experiment. For this example, the factor is meter comprised of five similar meters (five levels). The similar meters are grouped into blocks. Each block is tested against all treatment levels (the five meters) of the primary factor at random order. This is intended to eliminate possible influence by other extraneous factors. The response variable consist on the concatenated meter readings.
+
+So, there are k=5 treatment levels and b=15 control blocks.
+
+## Solution
+
+The solution consists of the following steps:
+
+Copy and paste the meter readings from Table X into a text editor or Excel, and save the dataset as a CSV file named infrared.
+
+Load the file into a data frame named df2 with the read.csv function. As the first line in the file contains the column names, we set the header argument as TRUE.
+
+```{r}
+df2 = as.data.frame(read.csv("C:\\Users\\jeff\\OneDrive\\Books\\Prob and Stats\\Data\\infrared.csv"))
+df2 <- df2[2:6]
+```
+
+Concatenate the data rows in df2 into a single vector r.
+
+```{r}
+r = c(t(as.matrix(df2))) # response data 
+r 
+```
+
+Assign new variables for the treatment levels and number of control blocks.
+
+```{r pressure, echo=FALSE}
+f = c("Meter1", "Meter2", "Meter3", "Meter4", "Meter5")   # treatment levels 
+k = 5                    # number of treatment levels 
+b = 15                    # number of control blocks
+```
+
+Create a vector of treatment factors that corresponds to the each element in r of step 3 with the gl function.
+
+```{r}
+Meters = gl(k, 1, b*k, factor(f))   # matching treatment 
+Meters
+```
+
+Similarly, create a vector of blocking factors for each element in the response data r. We use the gl function (base package) to accomplish this step.
+
+```{r}
+blk = gl(b, k, k*b)             # blocking factor 
+blk
+```
+Scatterplot
+
+```{r}
+library(ggplot2)
+library(arules)
+
+dat <- as.data.frame(cbind(r, Meters, blk))
+dat$Meters = as.factor(dat$Meters)
+
+ggplot(dat, aes(x=blk, y=r, color=Treatment, shape=Treatment)) +
+  geom_point(size = 3) + 
+  #labs(scale="participant") +
+  xlab("Block") +
+  ylab("Meter reading")
+  theme(axis.title.x = element_text(size=3),
+        axis.title.y = element_text(size=3))
+```
+
+
+```{r}
+p <- ggplot(dat, aes(x=blk, y=r, color=tm, shape=tm))
+p <- p + geom_point(size = 3)
+p <- p +   labs(fill = "Meters") 
+p <- p +   xlab("Block") 
+p <- p +   ylab("Meter reading")
+p <- p +   theme(axis.title.x = element_text(size=2),
+                 legend.title = element_text("Meters"))
+```
+
+Apply the function aov to a formula that describes the response r by both the treatment factor tm and the block control blk.
+
+```{r}
+aov.out = aov(r ~ tm + blk)
+```
+
+Print out the ANOVA table with the summary function.
+
+```{r}
+summary(aov.out) 
+```
+
+
+#Answer
+Since the p-value of 2.05e-06 is less than the .05 significance level, we reject the null hypothesis that the mean mean meter readings are all equal.
+
+```{r}
+anova_table <- as.data.frame(anova(aov.out))
+
+DF_labels = anova_table$Df[1]
+DF_block = anova_table$Df[2]
+DF_residuals = anova_table$Df[3]
+SS_labels = anova_table$`Sum Sq`[1]
+SS_block = anova_table$`Sum Sq`[2]
+SS_residuals = anova_table$`Sum Sq`[3]
+MS_labels = anova_table$`Mean Sq`[1]
+MS_block = anova_table$`Mean Sq`[2]
+MS_residuals = anova_table$`Mean Sq`[3]
+F_statistic <- anova_table$F[1]
+F_statistic_B <- anova_table$`F value`[2]
+p_value <- anova_table$"Pr(>F)"[1]
+p_value_B <- anova_table$`Pr(>F)`[2]
+
+anova_results <- data.frame(rbind(
+  cbind("Factor", 
+        DF = round(DF_labels,4),
+        SS = round(SS_labels,4),
+        MS = round(MS_labels,4),
+        F_statistic = round(F_statistic,4),
+        p_value = round(p_value,8)),  
+  cbind("Block", 
+        DF_Block = round(DF_block,4),
+        SS_Block = round(SS_block,4),
+        MS_block = round(MS_block,4),
+        F_statistic_B = round(F_statistic_B,4),
+        p_value_B = round(p_value_B,8)),
+  cbind("Residual", 
+        DF_Within = round(DF_residuals,4),
+        SS_Within = round(SS_residuals,4),
+        MS_Within = round(MS_residuals,4),
+        "",
+        ""),
+  cbind("Total", 
+        DF_Total = round(DF_labels + DF_block + DF_residuals,4),
+        SS_Total = round(SS_labels + SS_block + SS_residuals,4),
+        MS_Total = round(MS_labels + MS_block + MS_residuals,4),
+        "",
+        ""))
+)
+
+```
+
+```{r}
+knitr::kable(head(anova_results[, 1:6]), "pipe")
+```

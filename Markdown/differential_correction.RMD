@@ -1,0 +1,327 @@
+---
+title: "Multi-Factor ANOVA - Tracking Orbits"
+author: "Dr. Jeff Strickland"
+date: "2024-11-06"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Introduction
+
+In 2007, a new sensor resource allocation algorithm was been developed that allocates tracks from the Space Surveillance Network (SSN) to maintain the special perturbations satellite catalog to meet the accuracy requirements in the US Strategic Command Capstone Requirements Document (CRD) for Space Control. [James G. (Gil) Miller, Military Operations Research, Vol. 12, No. 1 (2007), pp. 57-70 (14 pages), Published By: Military Operations Research Society]
+
+There are two primary reasons for analyzing the satellite population positioning. The first reason is to characterize the composition of earth orbiting objects as completely as possible. The second reason is to be able to establish and maintain an astronomical baseline of satellites and their orbits. This is increasingly important as the number of resident spaces objects increases over time.
+
+For tasking, the SSN classifies satellites using Gabbard classes. Gabbard classes divide the satellite population into similar tasking characteristics. Gabbard classes are divided according to perigee and apogee altitude. The classes are one of the factors used by the SSN for tasking the network's sensors. 
+To obtain better accuracy of a satellite's position, a differential corrector was developed. The differential corrector is use to correct the satellites orbital elements, and calculate the vector magnitude of the error between the "truth" position and the position predicted by the USSPACECOM/NORAD orbital model. To measure its effectiveness, a test team would run this model for each of the representative satellites using different observations rates and correction intervals.
+
+A satellite was selected for each of the classes. The test team decided to hand pick a representative sample of classes (satellites) to perform their analysis on the differential corrector model. Table 5.9 shows the classes and the satellites selected. Three factors were part of the decision process at this point. First, the team wanted to select classes which had particular types of satellites. For instance, Class 1 1 1 contains geosynchronous satellites. Second, the classes with the most satellites were selected for further analysis. Classes 3 1 3 and 3 1 4 were selected for this reason. And finally, some classes were selected for added diversity in the analysis. Classes 2 2 3 is an example of a class selectted for added diversity.
+
+The batch size (number of observations used in one correction) is equal to the product of the specified observation rate in observations per day (OPD), and the specified correction interval, or length of update interval (LUPI), in days. For example, given an OPD of 4 (observations-per-day) at a LUPI of 2 (days), the batch size would  be 8 observations. As the observations are input, a check is performed to determine the observation type based on the sensor reporting the observation.
+
+Table 1. Classes Selected for Differential Corrector Model Analysis.
+
+| Class |Catalog Number| Class |Catalog Number|
+|------:|-------------:|------:|-------------:|
+|1 1 1	|15141	|1 3 1	|01996|
+|1 1 2	|15259	|3 1 2	|14443|
+|1 3 2	|14199	|3 1 3	|19643|
+|2 1 3	|10293	|3 1 4	|17429|
+|2 1 4	|10393	|4 1 1	|20335|
+|2 2 3	|19859	|4 1 2	|15584|
+
+##  Load the required packages by running the following code in RStudio
+
+```{r, message=FALSE}
+library(tibble)
+library(stats)
+library(tidyr)
+library(broom)
+library(multcomp)
+library(dplyr)
+library(dbplyr)
+``` 
+
+### PART 01: Preparing Data for Satellite Number 15141 Analysis
+
+#### VMAGT Analysis for Satellite Number 15141
+
+This Russian satellite was launched from the Baikonur Cosmodrome, Kazakhstan, on 30 June 1983, and is still in orbit. This satellite was randomly selected from the represented classes to demonstrate the variability in tracking a single satellite after the differential correction is applied.
+
+#### Read in the data from the CSV file by running the following code:
+
+Here, the data is read into a dataframe and the factors are defined the `as.factor` function. Just to be sure the transformation worked, we view the structure of the new dataframe using the `str` function.
+
+```{r}
+mat_dat_15141 <-read.csv("C:\\Users\\jeff\\OneDrive\\Books\\Prob and Stats\\Data\\diff_correct_15141.csv")
+dat_15141 <- mat_dat_15141
+dat_15141$LUPI <- as.factor(mat_dat_15141$LUPI)
+dat_15141$OPD <- as.factor(mat_dat_15141$OPD)
+dat_15141$mean_error <- mat_dat_15141$min_mean - mat_dat_15141$max_mean
+dat_15141$var_error <- mat_dat_15141$min_var - mat_dat_15141$max_var
+dat_15141$VMAGT <- mat_dat_15141$max_99ci - mat_dat_15141$min_99ci
+str(dat_15141)
+```
+#### Check the Structure of the Dataframe
+
+Just to be sure the transformation worked, we view the structure of the new dataframe using the `str` function
+
+```{r}
+str(dat_15141)
+```
+
+#### Print Satellite Number 15141 Data
+
+Here, the data is printed to view the contents of the dataset.
+
+```{r}
+dat_15141
+```
+
+#### Build a boxplot
+
+Although the data summary is good, visualizing the summarized data can be more insightful.
+
+```{r, fig.width = 8, fig.height = 6, dpi=330}
+plot_dat <- cbind(dat_15141$min_mean,dat_15141$max_mean,dat_15141$min_99ci,dat_15141$max_99ci,dat_15141$VMAGT)
+colnames(plot_dat) <- c("Min Mean","Max Mean", "Min 95% CI", "Max 95% CI", "VMAGT")
+boxplot(plot_dat, col = "skyblue", lwd=2, cex.axis=1)  
+```
+
+#### Satellite Number 15141 VMAGT ANOVA
+
+Next, a two factor ANOVA is performed. The response is the continuous variable, VMAGT. The selected factors are LUPI and OPD, each having four levels.
+
+First, we establish the hypotheses for the test.
+
+$$H_0: \mu_1=\mu_2$$
+$$H_A: \mu_1\ne\mu_2$$
+
+Now, we perform the ANOVA analyses using the `aov` function and storing the output as the object `aov.out`.
+
+```{r}
+aov1.out <- aov(VMAGT ~ LUPI + OPD, data=dat_15141)
+summary(aov1.out)
+```
+
+The results indicate that the null hypothesis can be rejected and conclude that there is evidence supporting a significant effect of observations per day (OPD) after application of the differential corrector.
+
+### PART 02: Preparing Data for Multi-Class Satellite Analysis
+
+#### Read the Dataframe and Check its Structure
+
+Here, the data is read into a dataframe and the factors are defined the `as.factor` function. Just to be sure the transformation worked, we view the structure of the new dataframe using the `str` function
+
+```{r}
+mat_dat <-read.csv("C:\\Users\\jeff\\OneDrive\\Books\\Prob and Stats\\Data\\diff_correct.csv")
+dat <- mat_dat
+dat$cat_num <- as.factor(mat_dat$cat_num)
+dat$LUPI <- as.factor(mat_dat$LUPI)
+dat$OPD <- as.factor(mat_dat$OPD)
+dat$mean_error <- mat_dat$min_mean - mat_dat$max_mean
+dat$var_error <- mat_dat$min_var - mat_dat$max_var
+dat$VMAGT <- mat_dat$max_99ci - mat_dat$min_99ci
+str(dat)
+```
+#### VMAGT Analysis for Twelve Satellite Classes
+
+First, the previous established factors, LUPI and OPD, are analyzed with
+using the following hypotheses for the test.
+
+$$H_0: \mu_1=\mu_2$$
+$$H_A: \mu_1\ne\mu_2$$
+
+The results are similar, in that observations per day is a significant factor, but with less confidence.
+
+```{r}
+aov2.out <- aov(VMAGT ~ LUPI + OPD + LUPI*OPD, data=dat)
+summary(aov2.out)
+```
+
+Now, the class of satellite is added as a factor, using the satellite number. Recall that each satellite is from a different class, so there are 12 factors.
+
+The following hypotheses are established:
+
+$$H_0: \mu_1+\mu_2+\mu_3$$
+$$H_A: \text{at least one } \mu_i \text{ is not equal}$$
+
+Next, the ANOVA is performed.
+
+```{r}
+aov3.out <- aov(VMAGT ~ cat_num + LUPI + OPD, data=dat)
+summary(aov3.out)
+```
+The results show that there is a significant difference to the position error due to both the satellite class and the observations per day.
+
+
+
+
+#### Print the ANOVA Table
+
+Next, we print the ANOVA table from the `aov3.out` object. The ANOVA table reveals that the are some differences in mean wear scores among the material types. The `cat_num` (satellite class) p-value is 2e-16, practically 0, and the OPD p-value is less than 0.01. Both results are significance and lead to rejecting the null hypothesis.
+
+```{r}
+summary(aov3.out)
+```
+
+## PART 03: EFFECT AND GENERAL RESULTS
+
+Now, we create an ANOVA table that is a little more "presentable" using the kable function, which we call a "kable table". 
+
+```{r}
+anova_table <- as.data.frame(anova(aov3.out))
+```
+
+#### Extract the results from the ANOVA test
+
+To generate the table, we need to pull the information from the `anova_table` object.
+
+```{r}
+DF_LUPI = anova_table$Df[1]
+DF_OPD = anova_table$Df[2]
+DF_VMAGT = anova_table$Df[3]
+DF_residuals = anova_table$Df[4]
+SS_LUPI = anova_table$`Sum Sq`[1]
+SS_OPD = anova_table$`Sum Sq`[2]
+SS_VMAGT = anova_table$`Sum Sq`[3]
+SS_residuals = anova_table$`Sum Sq`[4]
+MS_LUPI = anova_table$`Mean Sq`[1]
+MS_OPD = anova_table$`Mean Sq`[2]
+MS_VMAGT = anova_table$`Mean Sq`[3]
+MS_residuals = anova_table$`Mean Sq`[4]
+F_statistic1 <- anova_table$F[1]
+F_statistic2 <- anova_table$F[2]
+F_statistic3 <- anova_table$F[3]
+p_value1 <- anova_table$"Pr(>F)"[1]
+p_value2 <- anova_table$"Pr(>F)"[2]
+p_value3 <- anova_table$"Pr(>F)"[3]
+#Post-hoc: Bonferroni Correction
+bonferroni_corr1 <- p.adjust(p_value1, method = "bonferroni")
+bonferroni_corr2 <- p.adjust(p_value2, method = "bonferroni")
+bonferroni_corr3 <- p.adjust(p_value3, method = "bonferroni")
+```
+
+#### Create a data frame with ANOVA results
+
+Next we put the ANOVA metrics in a dataframe called `anova_results`, optimized to become a table.
+
+```{r}
+anova_results <- data.frame(rbind(
+  cbind("LUPI", 
+        DF = round(DF_LUPI,4),
+        SS = round(SS_LUPI,4),
+        MS = round(MS_LUPI,4),
+        F_statistic = round(F_statistic1,4),
+        p_value = round(p_value1,8)),  
+  cbind("OPD", 
+        DF_Within = round(DF_OPD,4),
+        SS_Within = round(SS_OPD,4),
+        MS_Within = round(MS_OPD,4),
+       F_statistic = round(F_statistic2,4),
+        p_value = round(p_value2,8)),
+  cbind("VMAGT", 
+        DF_Within = round(DF_VMAGT,4),
+        SS_Within = round(SS_VMAGT,4),
+        MS_Within = round(MS_VMAGT,4),
+        F_statistic = round(F_statistic3,4),
+        p_value = round(p_value3,8)),
+  cbind("ERROR", 
+        DF_Total = round(DF_residuals,4),
+        SS_Total = round(SS_residuals,4),
+        MS_Total = round(MS_residuals,4),
+        "",
+        ""),
+  cbind("Total", 
+        DF_Total = round(DF_LUPI + DF_OPD + DF_VMAGT + DF_residuals,4),
+        SS_Total = round(SS_LUPI + SS_OPD + SS_VMAGT + SS_residuals,4),
+        MS_Total = round(MS_LUPI + MS_OPD + MS_VMAGT + MS_residuals,4),
+        "",
+        "")
+))
+anova_results
+```
+
+#### Print a kable (Knitr table)
+
+Finally, we print the table.
+
+```{r}
+knitr::kable(head(anova_results[, 1:6]), "pipe")
+```
+
+## PART 04: POST HOC TESTS
+
+We discovered from the ANOVA results that at least one of the wear score means is not equal to the others. Now, we must determiine which one are not equal.
+
+#### Post-hoc: Bonferroni Correction
+
+The Bonferroni correction is a statistical method used to reduce the number of false positives when multiple hypothesis tests are performed simultaneously. Mathematically, the Bonferroni correction adjusts the significance level for each individual test by dividing α by m. The result, zero, demonstrates that no adjustment is necessary.
+
+```{r}
+cat("\nSat_Class-Bonferroni-Correction = ", round(bonferroni_corr1, 4), "\n")
+cat("\nLUPI-Bonferroni-Correction = ", round(bonferroni_corr2, 4), "\n")
+cat("\nOPD-Bonferroni-Correction = ", round(bonferroni_corr3, 4), "\n")
+```
+
+#### Post-hoc: Tukey's HSD
+
+Tukey's Honestly Significant Difference (HSD) test is a statistical tool that determines if the difference between two sets of data is statistically significant: 
+* Purpose: Compares the means of each sample to the means of every other sample
+* When to use: Used as a follow-up to one-way ANOVA 
+* Assumptions: Independent observations, normality of distribution, and homogeneity of variance 
+* Null hypothesis: The means of the tested groups are equal 
+
+```{r}
+tukey <- TukeyHSD(aov3.out)
+tukey_table <- tidy(tukey)
+tukey_df <- as.data.frame(tukey_table)
+print(paste0("", tukey_df$term, " ", tukey_df$contrast, " Adj p-value: ", round(tukey_df$adj.p.value,5)))
+```
+
+In the output, pair of groups are significantly different from each other if the adjusted p-value < 0.05. Thus, the following contrasts are significant:
+
+* cat_num 15141-1996 Adj p-value: 0.00677
+* cat_num 15584-1996 Adj p-value: 0  
+* cat_num 20335-1996 Adj p-value: 0 
+* cat_num 15584-10292 Adj p-value: 0.00891 
+* cat_num 20335-10292 Adj p-value: 0.02061 
+* cat_num 14199-10293 Adj p-value: 0.00685 
+* cat_num 15141-10293 Adj p-value: 0       
+* cat_num 15584-10293 Adj p-value: 0       
+* cat_num 20335-10293 Adj p-value: 0       
+* cat_num 14199-10393 Adj p-value: 0.00393 
+* cat_num 15141-10393 Adj p-value: 0      
+* cat_num 15584-10393 Adj p-value: 0 
+* cat_num 20335-10393 Adj p-value: 0      
+* cat_num 14443-14199 Adj p-value: 0.01299 
+* cat_num 15141-14199 Adj p-value: 0.84178 
+* cat_num 15259-14199 Adj p-value: 0.00899
+* cat_num 15584-14199 Adj p-value: 2e-05   
+* cat_num 17429-14199 Adj p-value: 0.01669 
+* cat_num 19643-14199 Adj p-value: 0.00969
+* cat_num 19859-14199 Adj p-value: 0.01132 
+* cat_num 20335-14199 Adj p-value: 2e-04   
+* cat_num 15141-14443 Adj p-value: 1e-05   
+* cat_num 15259-14443 Adj p-value: 1      
+* cat_num 15584-14443 Adj p-value: 0     
+* cat_num 17429-14443 Adj p-value: 1       
+* cat_num 19643-14443 Adj p-value: 1       
+* cat_num 19859-14443 Adj p-value: 1       
+* cat_num 20335-14443 Adj p-value: 0       
+* cat_num 15259-15141 Adj p-value: 0      
+* cat_num 15584-15141 Adj p-value: 0.00271
+* cat_num 17429-15141 Adj p-value: 1e-05  
+* cat_num 19643-15141 Adj p-value: 0      
+* cat_num 19859-15141 Adj p-value: 1e-05  
+* cat_num 20335-15141 Adj p-value: 0.01595
+* cat_num 15584-15259 Adj p-value: 0    
+* cat_num 20335-15259 Adj p-value: 0     
+* cat_num 17429-15584 Adj p-value: 0      
+* cat_num 19643-15584 Adj p-value: 0      
+* cat_num 19859-15584 Adj p-value: 0       
+* cat_num 20335-17429 Adj p-value: 0      
+* cat_num 20335-19643 Adj p-value: 0      
+* cat_num 20335-19859 Adj p-value: 0
+* OPD 8-2 Adj p-value: 0.00022 

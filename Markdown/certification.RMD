@@ -1,0 +1,81 @@
+---
+title: "Training Certifications"
+author: "Dr. Jeff Strickland"
+date: "2024-11-15"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+certs <-read.csv("C:\\Users\\jeff\\OneDrive\\Books\\Prob and Stats\\Data\\certs.csv")
+
+model01 <- lm(scores~Practices, data = certs)
+summary(model01)
+
+results <- data.frame(cbind(
+  rbind("n", 
+        "Sample Mean",
+        "Sample Stdev",
+        "Sample Var",
+        "Minimum",
+        "Lower Quartile",
+        "Median",
+        "Lower Quartile",
+        "Maximum"),  
+  rbind(nrow(certs),
+        round(mean(certs$scores),4),
+        round(sd(certs$scores),4),
+        round(var(certs$scores),4),
+        round(min(certs$scores),4),
+        round(quantile(certs$scores,1/4),4),
+        round(median(certs$scores),4),
+        round(quantile(certs$scores,3/4),4),
+        round(max(certs$scores),4)),
+  rbind(nrow(certs),
+        round(mean(certs$Practices),4),
+        round(sd(certs$Practices),4),
+        round(var(certs$Practices),4),
+        round(min(certs$Practices),4),
+        round(quantile(certs$Practices,1/4),4),
+        round(median(certs$Practices),4),
+        round(quantile(certs$Practices,3/4),4),
+        round(max(certs$Practices),4))
+  ))
+
+names(results)[1] <- "Statistic"
+names(results)[2] <- "Scores"
+names(results)[3] <- "Practices"
+
+#results
+
+library(knitr)
+knitr::kable(results[,1:3], "pipe")
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+library(ggplot2)
+ggplot(certs, aes(x = scores, y = Practices)) +
+  geom_point(size=3, shape=16, col='dodgerblue') +
+  labs(title = "Training Scores",
+       x = "",
+       y = "") +
+  theme(axis.line = element_line(arrow = arrow(angle = 30,
+                                               length = unit(0.15, "inches"),
+                                               ends = "last", 
+                                               type = "closed")))
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

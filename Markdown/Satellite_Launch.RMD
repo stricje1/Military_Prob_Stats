@@ -1,0 +1,92 @@
+---
+title: "Satellite Launch Failure"
+output: word_document
+date: "2024-10-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Probability of a Satellite Launch Failure
+
+First we load the data fream and create a faults table.
+
+```{r, results='hide'}
+# Computer faults dataframe
+library(dplyr)
+faults <- read.csv("C:\\Users\\jeff\\OneDrive\\Books\\Prob and Stats\\Data\\comp_faults.csv")
+faults %>%
+  count(computer_number, fault, sort=T)
+
+# Creating two-way table from data frame
+Faults_Table <- addmargins(table("Fault"=faults$computer_number,
+                                         "Frequency"=faults$fault))
+```
+
+Here we view the faults frequency table.
+
+```{r}
+# View table
+Faults_Table
+```
+
+Next, we create the probability space and calculate the conditional probabilties and the probabilities of independent events.
+
+```{r, results='hide'}
+library(probs)
+
+# Create Probabilty Space
+Faults_Data <- probspace(faults)
+Faults_Data
+
+# Conditional Probabilities
+Cumputer1_fault_prob <- Prob(Faults_Data, event=computer_number == "1", given=fault == "1")
+Cumputer1_fault_prob
+Cumputer1_nofault_prob <- 1-Cumputer1_fault_prob
+Cumputer1_nofault_prob
+
+Cumputer2_fault_prob <- Prob(Faults_Data, event=computer_number == "2", given=fault == "1")
+Cumputer2_fault_prob
+Cumputer2_nofault_prob <- 1-Cumputer1_fault_prob
+Cumputer1_nofault_prob
+
+Cumputer3_fault_prob <- Prob(Faults_Data, event=computer_number == "3", given=fault == "1")
+Cumputer3_fault_prob
+Cumputer3_nofault_prob <- 1-Cumputer1_fault_prob
+Cumputer3_nofault_prob
+
+# Independent Event Probabilties
+Prob_111 <-Cumputer1_fault_prob*Cumputer2_fault_prob*Cumputer3_fault_prob
+Prob_110 <-Cumputer1_fault_prob*Cumputer2_fault_prob*Cumputer3_nofault_prob
+Prob_101 <-Cumputer1_fault_prob*Cumputer2_nofault_prob*Cumputer3_fault_prob
+Prob_100 <-Cumputer1_fault_prob*Cumputer2_nofault_prob*Cumputer3_nofault_prob
+
+Prob_011 <-Cumputer1_nofault_prob*Cumputer2_fault_prob*Cumputer3_fault_prob
+Prob_010 <-Cumputer1_nofault_prob*Cumputer2_fault_prob*Cumputer3_nofault_prob
+Prob_001 <-Cumputer1_nofault_prob*Cumputer2_nofault_prob*Cumputer3_fault_prob
+Prob_000 <-Cumputer1_nofault_prob*Cumputer2_nofault_prob*Cumputer3_nofault_prob
+
+# Probaility of computers in use
+print(paste0("Computer1 fails, Computer2 fails, Computer3 fails =", round(Prob_111,8)))
+print(paste0("Computer1 fails, Computer2 fails, Computer3 works =", round(Prob_110,8)))
+print(paste0("Computer1 fails, Computer2 works, Computer3 fails =", round(Prob_101,8)))      
+print(paste0("Computer1 fails, Computer2 works, Computer3 works =", round(Prob_100,8)))
+print(paste0("Computer1 works, Computer2 fails, Computer3 fails =", round(Prob_011,8)))
+print(paste0("Computer1 works, Computer2 fails, Computer3 works =", round(Prob_010,8)))
+print(paste0("Computer1 works, Computer2 works, Computer3 fails =", round(Prob_001,8)))
+print(paste0("Computer1 works, Computer2 works, Computer3 works =", round(Prob_000,8)))
+
+
+```
+
+Now, we compute the probability that a satellie launch will fails, i.e., all threee computers fail.
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the result.
+
+```{r echo=FALSE}
+# Probability of a system failure
+print(paste0("################## RESULT ######################"))
+print(paste0("#  Probability of a system failure =", round(Prob_111,8),"  #"))
+print(paste0("################################################"))
+```

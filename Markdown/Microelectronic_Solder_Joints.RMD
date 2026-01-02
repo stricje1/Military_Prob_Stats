@@ -1,0 +1,128 @@
+---
+title: "Microelectronic Solder Joints"
+author: "Dr. Jeff Strickland"
+date: "2024-11-07"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Problem
+
+The test team is interested in comparing the gold layer thicknesses on the bond pads of microelectronic assemblies for space-hardens computer chips manufactured by four different companies. A random selection of ten bond pads is made from assemblies from each of the four companies, and the gold layer thickness is measured. The resulting data set is given in Table 10-9, and it is represented by the boxplots in Figure 10-12.
+
+In order to test whether there is a statistically significant difference between the four companies, the researcher conducts a one-way analysis of variance which is shown in Figure 10-13. The $p$-value is equal to $P(F_{3,36} ≥ 16.70)$ that is much less than $1%$, and so the researcher can conclude that there is a difference between the companies in terms of the gold layer thicknesses that they have on their substrate bond pads.
+
+The sample averages are $\bar{x_A}= 0.00714$, $\bar{x_B}= 0.00797$, $\bar{x_C}= 0.00878$, and $\bar{x_D}=0.00795$, and $s =\sqrt{MSE}= 0.0005182$ so that
+
+$$\frac{s × q_0.05,4,36}{\sqrt{n}}=\frac{0.0005182 × 3.81}{\sqrt{10}}= 0.000624$$
+
+The differences between the sample averages are all larger than $0.000624$ except for the comparison of companies $B$ and $D$, and consequently the researcher can conclude that while there is no evidence of a difference between companies $B$ and $D$, the data provide sufficient evidence to conclude that company $A$ has thinner gold layers on average than the other three companies, while company $C$ has thicker layers on average than the other three companies. This result is illustrated in Figure 10.14.
+
+## Solution
+
+The solution consists of the following steps:
+
+Copy and paste the gold layer data thickness from Table 10-9 into a text editor or Excel, and save the dataset as a CSV file named `solder_joints`.
+
+First, we load the packages we need for the R functions we plan to use.
+
+```{r}
+library(reshape2) 
+library(ggplot2)
+```
+
+Load the file into a data frame named `df2` with the `read.csv` function. As the first line in the file contains the column names, we set the header argument as TRUE.
+
+```{r}
+my_data = as.data.frame(read.csv("C:\\Users\\jeff\\OneDrive\\Books\\Prob and Stats\\Data\\solder_joints.csv"))
+my_data
+```
+
+Next, we add an ID column to the dataframe and 'melt' the four company columns into one. We also check its structure to ensure the ransformation is what we intended.
+
+```{r}
+my_data$ID <- 1:nrow(my_data)
+my_data
+
+# creating the modified dataframe 
+data_mod <- melt(my_data, id.vars='ID',  
+                  measure.vars=c('Company_A','Company_B','Company_C','Company_D'))
+str(data_mod)
+```
+
+Before performing the ANOVA, we will explore the modified dataset through the use of a boxplot. The plot shows that there are some potential differences in mean values between the companies (treatments).
+
+```{r}
+library(ggplot2)
+#library(arules)
+
+data_mod$Companies = as.factor(data_mod$variable)
+
+ggplot(data_mod, aes(x=Companies, y=value, color=Companies, shape=Companies)) +
+  geom_boxplot(size = 1.25) + 
+  xlab("Company") +
+  ylab("Gold layer thiskness")
+  theme(axis.title.x = element_text(size=2))
+```
+
+Apply the function `aov` to a formula that describes the response `r` by both the treatment factor `tm`.
+
+```{r}
+aov.out =  aov(value ~ Companies, data=data_mod)
+```
+
+Print out the ANOVA table with the summary function.
+
+```{r}
+summary(aov.out) 
+```
+
+
+#Answer
+Since the `p`-value of `5.8e-07` (approximately zero) is less than the `0.05` significance level, we reject the null hypothesis that the mean mean Sensor readings are all equal.
+
+```{r}
+anova_table <- as.data.frame(anova(aov.out))
+
+DF_labels = anova_table$Df[1]
+DF_residuals = anova_table$Df[2]
+SS_labels = anova_table$`Sum Sq`[1]
+SS_residuals = anova_table$`Sum Sq`[2]
+MS_labels = anova_table$`Mean Sq`[1]
+MS_residuals = anova_table$`Mean Sq`[2]
+F_statistic <- anova_table$F[1]
+F_statistic_B <- anova_table$`F value`[2]
+p_value <- anova_table$"Pr(>F)"[1]
+
+anova_results <- data.frame(rbind(
+  cbind("Factor", 
+        DF = round(DF_labels,8),
+        SS = round(SS_labels,8),
+        MS = round(MS_labels,8),
+        F_statistic = round(F_statistic,4),
+        p_value = round(p_value,8)),  
+  cbind("Residual", 
+        DF_Within = round(DF_residuals,8),
+        SS_Within = round(SS_residuals,8),
+        MS_Within = round(MS_residuals,8),
+        "",
+        ""),
+  cbind("Total", 
+        DF_Total = round(DF_labels + DF_residuals,8),
+        SS_Total = round(SS_labels + SS_residuals,8),
+        MS_Total = round(MS_labels + MS_residuals,8),
+        "",
+        ""))
+)
+
+```
+
+```{r}
+knitr::kable(head(anova_results[, 1:6]), "pipe")
+```
+
+```{r}
+TukeyHSD(aov.out)
+```

@@ -1,0 +1,321 @@
+---
+title: "WD-40 Polynomial Regression"
+author: "Dr. Jeff Strickland"
+date: "2024-11-22"
+output: word_document
+---
+
+```{r setup, include=FALSE, fig.width = 8, fig.height = 6, dpi=330}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Vignette 7 (Water Displacement Formula) Multiple Linear Regression
+
+Recall that Rocket Chemical Company developed a water displacement formula that is known as WD-40, with 40 being the formulation that finally worked effectively to preserve missiles in their silos.
+
+One thing that engineers learned in formulating WD 40 was that temperature was a significant factor. Consequently, a chemical engineer measures the yield of a WD formulation obtained from a reaction performed at various temperatures, and the data set shown in Figure 13.7 is obtained.
+
+```{r, message=FALSE, warning=FALSE}
+library(readr)
+WD = read_csv( "C:\\Users\\jeff\\OneDrive\\Books\\Prob and Stats\\Data\\WD_Temp.csv")
+WD
+```
+
+Table 13-2. WD formulation chemical yields data set
+
+|Yield|	Temp ℃|
+|----:|-----:|
+|85	|90|
+|76	|100|
+|114	|110|
+|143	|120|
+|164	|130|
+|281	|140|
+|306	|150|
+|358	|160|
+|437	|170|
+|470	|180|
+|649	|190|
+|702	|200|
+
+The data plot suggests that there is some curvature in the relationship between yield and temperature, and this is confirmed by the straight line fit (simple linear regression model with yield as the response variable and temperature as the input variable) shown in Figure 13.8.
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+# Change the point colors and shapes
+# Change the line type and color
+ggplot(WD, aes(x = Temp, y = Yield)) + 
+  geom_point(shape=20, color="red3", size = 3)+
+  geom_smooth(method=lm, se=FALSE, linetype="solid",
+              color="blue", lwd = 1.25)
+```              
+
+Because the fitted line underestimates the yield at low and high temperatures and overestimates the yield at the middle temperatures.
+
+The chemical engineer therefore decides to try the quadratic model:
+
+$$Yield = β_0 + (β_1 × Temp) + (β_2 × Temp^2)$$
+A statistical software package, R using R-Studio, is employed to perform the analysis.
+
+#### Ploynomial Regression Methods
+
+Now the chemical engineer applies a second degree polynomial fit to the data.
+
+He knows that polynomial terms can be specified using the inhibit function I() or through the poly() function. Note that these two methods produce different coefficients, but the same residuals and same F-statistic (326.4)! This is due to the poly() function using orthogonal polynomials by default. The poly() regression will produce coefficients that greatly inflate the chemical yields. Therefore, using the inhibit function is a better choice.
+
+```{r, message=FALSE, warning=FALSE}
+## poly() Function
+model1 <- lm(Yield ~ poly(Temp, degree = 2), 
+            data = WD)
+## I() Function
+model2 <- lm(Yield ~ I(Temp) + I(Temp^2), 
+            data = WD)
+```
+
+```{r, echo=FALSE}
+print(paste0("-------------- Model 1 ------------------"))
+print(paste0("poly Function Intercept: ", round(model1$coefficients[1],5)))
+print(paste0("poly Function Temp:      ", round(model1$coefficients[2],5)))
+print(paste0("poly Function Temp^2:    ", round(model1$coefficients[3],5)))
+print(paste0("-------------- Model 2 ------------------"))
+print(paste0("I Function Intercept:    ", round(model2$coefficients[1],5)))
+print(paste0("I Function Temp:          ", round(model2$coefficients[2],5)))
+print(paste0("I Function Temp^2:         ", round(model2$coefficients[3],5)))
+```
+
+#### model Summary
+
+Next the chemical engineer printed the I() Function model summary.
+
+```{r, message=FALSE, warning=FALSE} 
+summary(model2)
+```
+
+The output indicates that the polynomial model is a good fit. For example, the model consists of two polynomial terms that are significant. The t-values are greater than the t-critical values and consequently, the p-values are near zero (1.27e-09 and 0.000418) making the factors significant at the 0.001 level. 
+
+Residual standard error is 13.12, so the chemical engineer can expect the average yield error to be about 13.12. Relative to the Yields, ranging from about 85 to 700, the  residual standard error is small.
+
+The Multiple R-squared statistic indicates that temperature explains 99.56% of the variation in Yield.
+
+The equation of the fitted curve is:
+
+$$Yield = 293.0997 − (6.1413 × Temp) + (0.0411 × Temp^2)$$
+
+Using a temperature of $155^\circ C$, the chemical engineer checks the solution:
+
+```{r, message=FALSE, warning=FALSE}
+Yield = 293.0997 - (6.1413*155) + (0.0411*155^2)
+Yield
+```
+
+$$Yield = 293.0997 − (6.1413 × 155) + (0.0411 × 155^2) = 328.6257$$
+
+#### Plot the Fitted Curve
+
+The chemical engineer then uses `ggplot` to give the fitted curve shown in Figure 13.9, which appears to provide a satisfactory fit. 
+
+```{r, message=FALSE, warning=FALSE}
+ggplot(WD, aes(x = Temp, y = Yield)) + 
+  geom_point(shape=20, color="red3", size = 3)+
+  geom_line(aes(y = model2$fitted), color="blue", lwd = 1.25)
+```
+
+#### Regression Model Prediction Intervals
+
+Next, the chemical engineer used the R `predict` function from the `stats` package to predict future Nile flow rates, with an upper and lower confidence interval, using "conf" as the specified interval.
+
+```{r, message=FALSE, warning=FALSE}
+model.ci.prd <- predict(model, interval = "conf")
+WD.ci.prd <- cbind(WD, model.ci.prd)
+print(WD.ci.prd)
+```
+
+Next, the chemical engineer used the R `predict` function from the `stats` package to predict future Nile flow rates, with an upper and lower prediction interval, using "pred" as the specified interval.
+
+```{r, message=FALSE, warning=FALSE}
+model.pi.prd <- predict(model, interval = "pred")
+WD.pi.prd <- cbind(WD, model.pi.prd)
+print(WD.pi.prd)
+```
+
+Finally, the chemical engineer plotted the model and its prediction interval.
+
+```{r, message=FALSE, warning=FALSE, fig.width = 6, fig.height = 4, dpi=330}
+library(qqplotr)
+ggplot(data = WD.ci.prd, aes(x = Temp, y = Yield)) +
+  geom_ribbon(aes(ymin = WD.ci.prd$lwr, ymax = WD.ci.prd$upr, level = 0.975), 
+              fill = "purple", alpha = 0.6) + 
+  geom_ribbon(aes(ymin = WD.pi.prd$lwr, ymax = WD.pi.prd$upr,
+  level = 0.95),
+              fill = "deepskyblue", alpha = 0.4) + 
+  geom_line(aes(y = fit), color = "white", size = 1.0) +
+  geom_point(size = 2, col = 'red3') + 
+  ggtitle("Regression Line, 95% Confidence and Prediction
+          Bands")
+```
+
+#### Diagnostics
+
+Next the chemical engineer performs residual analysis. The residuals appear to be randomly scattered around zero with no clear pattern, which indicates that the assumption of homoscedasticity is met. In other words, the coefficients of the regression model should be trustworthy and he does not need to perform a transformation on the data.
+
+```{r, message=FALSE, warning=FALSE}
+ggplot(model, aes(x = .fitted, y = .resid)) +
+  geom_point(col = 'red4', size = 2) +
+  geom_hline(yintercept = 0) +
+  labs(title = "WD Yield at Various Temperatures",
+       x = "Fitted Values",   y = "Residuals")
+```
+
+#### Normal Distribution of Residuals
+
+Random deviations of obtained residuals should have a normal density distribution. First, we need to receive the residuals with the following code:
+
+```{r}
+res<-data.frame(residuals(model2))
+head(res)
+```
+
+The first six residuals are represented in Table 3. Then we need to check the normality of the distribution. It is very useful to create density plots of obtained residuals for checking the assumptions and for assessing the goodness of the fit. Hence, we can use the library (ggplot2) for creating a plot of the density distribution of obtained residuals versus normal scores:
+
+```{r, message=FALSE, warning=FALSE, fig.width = 6, fig.height = 4, dpi=330}
+ggplot(res, aes(x=residuals.model2.)) + 
+  geom_histogram(aes(y=..density..),colour="black",
+                 fill=c("white"))+
+  geom_density(aes(x=residuals.model2.,y=..density..),
+               col="blue")+
+  stat_function(fun = dnorm, args = list(
+    mean = mean(res$residuals.residuals.model2.), 
+    sd = sd(res$residuals.residuals.model2.)),col="red") +
+  ylab("Density") + xlab("Residuals")
+```
+
+The normal scores in our case are what we would expect to obtain if we take a sample of size n with mean and standard deviation from the residuals represented in Table 3. If the residuals are normally distributed, the picture of obtained residuals should be approximately the same as the normal scores. As we saw from Fig.4. we have a skewed distribution of our residuals and need more checks for this problem.
+
+Another way to check the normality distribution of studentized residuals is the automatic construction of a Quantile-Quantile plot. This plot can be easily constructed with library (car):
+
+```{r, message=FALSE, warning=FALSE, fig.width = 6, fig.height = 4, dpi=330}
+library(car)
+qqPlot(model2, labels=row.names(data),simulate=TRUE, main='Q-Q Plot')
+```
+
+On Fig.5 we have a plot of the quantiles of standardized residuals versus the quantiles of normal scores. Here again, if the residuals are normally distributed, the points of standardized residuals should be approximately the same as the points of normal scores. Under normality assumption, this plot should represent a straight line with an intercept of zero (mean) and a slope of the size of the standard deviation of the standardized residuals, i.e. 1. In our case, in Fig.5 we see like in Fig.4 that we have some deviation from the normal distribution. In addition, in Fig.5 we detected the outliers – observations number 21 and 26.
+
+A more complete way of investigation of this problem suggests construction of the plot of the obtained model with the code in the next code chunk. As the output of such a code, we obtain 4 diagnostic plots of the regression line, which are shown in Fig. 6. These are:
+
+\* Plot of the residuals versus fitted values;
+\* Normal Quantile-Quantile plot;
+\* Plot of the standardized residuals versus fitted values;
+\* Plot of the standardized residuals versus leverage.
+
+The first three plots help to investigate the mentioned above problem with random deviations of the residuals that should have a normal density distribution. The fourth plot also helps to detect influential points and outliers.
+
+```{r, message=FALSE, warning=FALSE, fig.width = 6, fig.height = 4, dpi=330}
+plot(model2)
+```
+
+
+#### Influential points and outliers
+
+The chemical engineer knows that when he fits a model, he should be sure that the choice of the model is not determined by one or a few observations.
+
+Such observations are called **influential points** and **outliers**. A point is an influential point if its deletion causes significant changes in the fitted model. Otherwise, observations with large standardized residuals are called outliers because they lie far from the fitted regression line. Since the standardized residuals are approximately normally distributed with mean zero and a standard deviation which is equal to 1, points with standardized residuals larger than 2 or 3 standard deviations away from the 0 are called outliers.
+
+**Cook’s distance** measures the difference between the regression coefficients obtained from the full statistical data and the regression coefficients obtained by deleting the $i^{th}$ observation. As we see from Figure x-x, points number 1 and 36 are influential points, and point number 16 and 34 are outliers.
+
+Furthermore, he created a plot, which shows the ressult more clearly with the following code:
+
+```{r, message=FALSE, warning=FALSE}
+library(car)
+influencePlot(model2, id=TRUE)
+```
+
+#### Random deviations 
+
+The Durbin-Watson (DW) test is the basic test of autocorrelation in regression analysis. The test is based on the assumption that successive residuals are correlated, namely,
+$e_t=\rho e_{t-1}+W_t,  |\rho|<1$
+
+In equitation (9) ρ is the correlation coefficient between $e_t$ and $e_{t-1}$ and $w_t$  is normally independently distributed with zero mean and constant variance. Therefore, the residuals have first-order autoregressive structure or first-order autocorrelation.
+
+In most situations, the residuals et may have a much more complex correlation structure. The first-order dependency structure, given in (9), is taken as a simple approximation to the actual error structure. The Durbin-Watson test can be simply calculated by using library (cars):
+
+```{r, message=FALSE, warning=FALSE}
+durbinWatsonTest(model2)
+```
+
+In our case, the criteria of DW test is equal to 0.4133839, p-value – 0.002 with a significance level of 0.05. Hence, we conclude that the value of DW criteria is significant at the 5% level and Ho is rejected, showing that autocorrelation is present.
+
+**The model must be linear with respect to its parameters**
+
+Such a hypothesis we can test using function crPlots from the library (cars):
+
+```{r, message=FALSE, warning=FALSE, fig.width = 6, fig.height = 4, dpi=330}
+crPlots(model2)
+```
+
+The output of the above mentioned code is creating Component plus Residual Plot, which is shown in Fig.8. The residual plus component plot for $X_i$ is a scatter plot of $(e_i+β^*_i X_i)$ versus $X_i$ where $e_i$ is the ordinary least squares residuals when $Y$ is regressed on all predictor variables and $β^*_i$ is the coefficient of $X_i$ in this regression. $β^*_i X_i$ is the component of the $i^{th}$ predictor to the fitted values. This plot indicates whether any nonlinearity is present in the relationship between $Y$ and $X_i$. The plot can therefore suggest possible transformations for linearizing the data. The indication of nonlinearity is, however, not present in the added-variable plot because the horizontal scale in the plot is not the variable itself. Both plots are useful, but the residual plus component plot is more sensitive than the added-variable plot in detecting nonlinearities in the variable being considered for introduction in the model. In our case, we do not indicate nonlinearity.
+
+**The variance of random deviations should be constant**
+ 
+When the variance of the residual is not constant over all the observations, the residuals is named heteroscedastic. Heteroscedasticity is usually detected by suitable graphs of the residuals such as the scatter plot of the standardized residuals against the fitted values or against each of the predictor variables.
+
+The most common numeric test for detecting heteroscedasticity is the Breush-Pagan test, which is fulfilled in library (cars):
+
+```{r}
+ncvTest(model2)
+```
+
+This test creates a statistic that is chi-squared distributed and for our data equals 0.04732474. The p-value is the result of the chi-squared test and) the null hypothesis is accepted for p-value>0.05. In this case, the null hypothesis of homoscedasticity would be accepted. Thus, the test result is significant (p=0.6505), which indicates the fulfillment of the condition of dispersion homogeneity.
+
+#### Data Transformation and Eliminating Outliers
+
+Hence, autocorrelation and homoscedasticity are presented in our model. In this case, we need to overcome such requirements. The most popular way for this is to transform one or more variables (for example, use $log (Y)$ instead of $Y$) in our model. To help this task, we can use spreadLevelPlot from the library (cars):
+
+```{r, message=FALSE, warning=FALSE, fig.width = 6, fig.height = 4, dpi=330}
+spreadLevelPlot(model2)
+```
+
+The suggested power transformation is the power of p (Yp), raising to which removes the variance in the residuals. The proposed power transformation is 0.9613543, which is not close to 0. Thus, we do not need to use the logarithmic transformation Y in the regression equation, which could give a model that satisfies the above-mentioned requirement.
+
+#### Polynomial Regression Model comparison with ANOVA
+
+Therefore, we can obtain our new model (10) and the summary information with the following code:
+
+```{r}
+NEWMod1 <- lm(Yield ~ Temp+I(Temp^2), data=WD)
+summary(NEWMod1)
+```
+
+```{r}  
+NEWMod2 <- lm(Yield ~ Temp+I(Temp^2)+I(Temp^3), data=WD)
+summary(NEWMod2)
+```
+
+The two nested models can be compared in terms of fit to the data using the anova function. In our case, the nested model is a model, all of which are members of another model.
+
+```{r}
+anova(NEWMod1, NEWMod2)
+```
+
+From the output of the ANOVA table, we can see the value of the residual sum of squares (RSS) also known as the sum of squared errors (SSE), and the F value. The difference between models 1 and 2 is the degree of the polynomial. In our case, model 1 is embedded in model 2. Since the test result is insignificant $(p=0.7595)$, we conclude that increasing the degree of the polynomial does not improve the quality of the model, so a polynomial model of degree 2 is sufficient.
+
+#### Cross-validation for Polynomial Regression Model
+
+A method to make the existing model better is a method of cross-validation. In cross-validation, part of the data is used as a training sample, and part as a test sample. The regression equation is fitted to the training set and then applied to the test set. Since the test sample is not used to fit the model parameters, the applicability of the model to this sample is a good estimate of the applicability of the obtained model parameters to new data.
+
+In k-fold cross-validation, the sample is divided into $k$ subsamples. Each of them plays the role of a test sample, and the combined data of the remaining $k–1$ subsample is used as a training group. The applicability of $k$ equations to $k$ test samples is fixed and then averaged.
+
+Method of cross-validation can be implemented with the library (caret) and the following code:
+
+```{r, message=FALSE, warning=FALSE}
+# To perform 10-fold cross-validation: fit a regression model and use k-fold CV to evaluate performance
+library(caret)
+Preprocess<- trainControl(method = "cv", number = 5)
+NEWMod3 <- train(Yield ~ Temp+I(Temp^2), data = WD, method = "lm", trControl = Preprocess)
+summary(NEWMod3$finalModel)
+```
+
+#### Conclusion
+
+As we can see, from the last listing, the use of the transformed data and method of cross-validation allowed to improve the quality of our model from $R^2=0.7$ to $R^2=0.7763$.
+
+The exact determination of the regression equation is the most important product of the regression analysis. It is a summary of the relationship between the response variable and the predictor or set of predictor variables. The obtained equation may be used for several purposes. It may be used to evaluate the importance of individual variables, to analyze the effects of the predictor variables, or to predict values of the response variable for a given set of predictors
